@@ -8,13 +8,13 @@ const router = express.Router();
 const userModels = {
     Admin: require('../../models/Auth/Admin'),
     Owner: require('../../models/Auth/Owner'),
-    Management: require('../../models/Auth/Management'),
+    //Management: require('../../models/Auth/Management'),
     Employee: require('../../models/Auth/Employee'),
     Tenant: require('../../models/Auth/Tenant')
 };
 
 const routeAuthorization = {
-    '/management/register': ['Admin'],
+    //'/management/register': ['Admin'],
     '/employee/register': ['Admin', 'Management'],
     '/tenant/register': ['Admin', 'Management', 'Employee'],
 };

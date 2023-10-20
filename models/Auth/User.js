@@ -11,14 +11,16 @@ const UserSchema = new mongoose.Schema({
         minlength: 3,
         maxlength: 50,
     },
-    email:{
+    email: {
         type: String,
-        unique: true,
-        required: [true, 'Please provide email'],
         validate: {
-            validator: validator.isEmail,
-            message: 'Please provide valid email',
-        }
+            validator: function(v) {
+                return validator.isEmail(v);
+            },
+            message: props => `${props.value} is not a valid email address!`
+        },
+        required: [true, 'Email required'],
+        unique: true
     },
     Phone: {
         type: String,
@@ -41,12 +43,6 @@ const UserSchema = new mongoose.Schema({
         type: Date,
     },
 }, role);
-//userOptions
-//  role:{
-//         type: String,
-//         enum: ['admin', 'owner', 'management', 'management_employee', 'tenant'],
-//         default: 'tenant',
-//     },
 
 UserSchema.pre('save', async function(){
     if(!this.isModified('password'))return;
