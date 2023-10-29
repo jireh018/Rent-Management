@@ -20,28 +20,26 @@ const routeAuthorization = {
 };
 
 Object.keys(userModels).forEach(userModel => {
-    const userController = new AuthController(userModels[userModel]);
+    const authController = new AuthController(userModels[userModel]);
 
-    if(routeAuthorization[`/${userModel.toLocaleLowerCase()}/register`]){
-        router.post(`/${userModel.toLocaleLowerCase()}/register`, [authenticateUser, 
-        authorizePermissions(routeAuthorization[`/${userModel.toLocaleLowerCase()}/register`][0])],
-        userController.register.bind(userController));
-        // console.log(routeAuthorization[`/${userModel.toLocaleLowerCase()}/register`][0])
-    }
-    router.post(`/${userModel.toLocaleLowerCase()}/register`, userController.register.bind(userController));
-    router.post(`/${userModel.toLocaleLowerCase()}/login`, userController.login.bind(userController));
+    // if(routeAuthorization[`/${userModel.toLocaleLowerCase()}/register`]){
+    //     router.post(`/${userModel.toLocaleLowerCase()}/register`, [authenticateUser, 
+    //     authorizePermissions(routeAuthorization[`/${userModel.toLocaleLowerCase()}/register`][0])],
+    //     authController.register.bind(authController));
+    //     // console.log(routeAuthorization[`/${userModel.toLocaleLowerCase()}/register`][0])
+    // }
+    router.post(`/${userModel.toLocaleLowerCase()}/register`, authController.register.bind(authController));
+    router.post(`/${userModel.toLocaleLowerCase()}/login`, authController.login.bind(authController));
     router
-        .get(`/${userModel.toLocaleLowerCase()}/show-me`, authenticateUser, userController.showCurrentUser.bind(userController));
+        .get(`/${userModel.toLocaleLowerCase()}/show-me`, authenticateUser, authController.showCurrentUser.bind(authController));
     router
-        .delete(`/${userModel.toLocaleLowerCase()}/logout`, authenticateUser,userController.logout.bind(userController));
+        .delete(`/${userModel.toLocaleLowerCase()}/logout`, authenticateUser,authController.logout.bind(authController));
     router
-        .post(`/${userModel.toLocaleLowerCase()}/verify-email`, userController.verifyEmail.bind(userController));
+        .post(`/${userModel.toLocaleLowerCase()}/verify-email`, authController.verifyEmail.bind(authController));
     router
-        .post(`/${userModel.toLocaleLowerCase()}/forgot-password`, userController.forgotPassword.bind(userController));
+        .post(`/${userModel.toLocaleLowerCase()}/forgot-password`, authController.forgotPassword.bind(authController));
     router
-        .post(`/${userModel.toLocaleLowerCase()}/reset-password`, userController.resetPassword.bind(userController));
+        .post(`/${userModel.toLocaleLowerCase()}/reset-password`, authController.resetPassword.bind(authController));
 });
     
-
-
 module.exports = router;

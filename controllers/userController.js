@@ -1,5 +1,3 @@
-const express = require('express');
-const User = require('../models/User.js');
 const { StatusCodes } = require('http-status-codes');
 const CustomError = require('../errors')
 const {
@@ -7,61 +5,46 @@ const {
     attachCookiesToResponse,
     checkPermissions,
 } = require('../utils/index');
+const UserRepository = require('../repositories/userRepository');
+const UserService = require('../services/userService');
 
-const getAllUsers = async (req, res) => {
-    const users = await User.find({role:'user'}).select('-password')
-    if(!users){
-        throw new CustomError.BadRequestError('No existing users')
-    }
-    res.status(StatusCodes.OK).json({users, count:users.length})
-}
-
-const getSingleUser = async (req, res) => {
-    const {id} = req.params
-    const user = await User.findOne({_id: id}).select('-password')
-    if(!user){
-        throw new CustomError.BadRequestError(`No existing user with id ${id}`)
-    }
-    checkPermissions(req.user, user._id)
-    res.status(StatusCodes.OK).json({user})
-}
-
-const updateUser = async (req, res) => {
-    const {name, email} = req.body
-    if(!name || !email){
-        throw new CustomError.BadRequestError('Please provide both value')
-    }
-    const user = await User.findOne({_id: req.user.userId})
-
-    user.email = email
-    user.name = name
-    await user.save()
-
-    const tokenUser = createTokenUser(user)
-    attachCookiesToResponse({res, user: tokenUser})
-    res.status(StatusCodes.OK).json({user: tokenUser})
-}
-
-const updateUserPassword = async (req, res) => {
-    const {oldPassword, newPassword} = req.body
-    if(!oldPassword || !newPassword){
-        throw new CustomError.BadRequestError('Please provide both value')
+class UserController{
+    constructor(Model){
+        this.userRepository = new UserRepository(Model);
+        this.userService = new UserService(this.userRepository);
     }
 
-    const user = await User.findOne({_id: req.user.userId})
-    const isPasswordCorrect = await user.comparePassword(oldPassword);
-    if (!isPasswordCorrect) {
-        throw new CustomError. UnauthenticatedError('Invalid Credentials');
+    async getAllUsers (req, res) {
+        const users = await this.userService.getAllUsersByRole(req.user.role);
+        res.status(StatusCodes.OK).json(users);
     }
-    user.password = newPassword;
 
-    await user.save();
-    res.status(StatusCodes.OK).json({ msg: 'Success! Password Updated.' });
+    async getSingleUser (req, res) {
+        const {id} = req.params
+        const user = await this.userService.getAllUsersByRole(id);
+        checkPermissions(req.user, user._id);
+        res.status(StatusCodes.OK).json({user});
+    }
+
+    async deleteUSer (req, res) {
+        const msg = await this.userService.deleteUserById(req.user.userId);
+        res.status(StatusCodes.OK).json(msg);
+    }
+
+    async updateUser (req, res) {
+        const {name, email} = req.body
+        const user = await this.userService.updateUserInfo({name, email}, req.user.userId);
+
+        const tokenUser = createTokenUser(user)
+        attachCookiesToResponse({res, user: tokenUser})
+        res.status(StatusCodes.OK).json({user: tokenUser})
+    }
+
+    async updateUserPassword (req, res) {
+        const {oldPassword, newPassword} = req.body
+        const msg = await this.userService.updateUSerPassword({oldPassword, newPassword}, req.user.userId);
+        res.status(StatusCodes.OK).json(msg);
+    }
 }
 
-export {
-    getAllUsers,
-    getSingleUser,
-    updateUser,
-    updateUserPassword,
-}
+module.exports = UserController;

@@ -5,31 +5,47 @@ class UserRepository{
     }
 
     async findOneByEmail(email){
-        return this.model.findOne({email});//.select('+password')
+        return await this.model.findOne({email});//.select('+password')
+    }
+
+    async findOneByEmail_PasswordReturned(email){
+        return await this.model.findOne({email}).select('+password');
     }
 
     async create(userData){
-        return this.model.create(userData);
+        return await this.model.create(userData);
     }
 
     async comparePassword({user, password}){
-        return user.comparePassword(password);
+        return await user.comparePassword(password);
     }
 
     async save(user){
-        return user.save();
+        return await user.save();
+    }
+
+    async remove(user){
+        return await user.remove();
     }
 
     async findTokenByUser(userId) {
-        return Token.findOne({ user: userId });
+        return await Token.findOne({ user: userId });
     }
 
     async createTokenUser(userToken) {
-        return Token.create(userToken);
+        return await Token.create(userToken);
     }
 
     async deleteTokenByUserId(userId){
-        return Token.findOneAndDelete({user: userId})
+        return await Token.findOneAndDelete({user: userId})
+    }
+
+    async findAllByRole(role){
+        return await this.model.find({role}).select('-password');
+    }
+
+    async findById(id){
+        return await this.model.findOne({_id: id}).select('-password');
     }
 }
 

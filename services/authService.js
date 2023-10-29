@@ -15,7 +15,7 @@ const {createTokenUser,
     sendVerificationEmail,
     createHash,
 } = require('../utils/index');
-//
+const origin = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 class AuthService{
     constructor(userRepository, mailService){
@@ -24,6 +24,9 @@ class AuthService{
     }
 
     async register(userData){
+        if(!userData.name || !userData.email || !userData.password){
+            throw new BadRequestError('please provide all values')
+        }
         const userExists = await this.userRepository.findOneByEmail(userData.email);
         if(userExists){
             throw new BadRequestError('Email already exists');
@@ -36,32 +39,39 @@ class AuthService{
             name: newUser.name,
             email: newUser.email,
             verificationToken: newUser.emailVerificationToken,
-            origin: 'http://localhost:3000',
+            origin,
         });
 
         return newUser;
     }
 
     async verifyEmail(userData){
+        if(!userData.email || !userData.emailVerificationToken){
+            throw new BadRequestError('please provide all values')
+        }
         const user = await this.userRepository.findOneByEmail(userData.email);
+        
         if(!user){
             throw new UnauthenticatedError('verification failed');
         }
-
         if(user.emailVerificationToken !== userData.emailVerificationToken){
             throw new UnauthenticatedError('verification failed');
         }
-
+        
         user.isVerified = true;
         user.verified = Date.now();
         user.emailVerificationToken = '';
 
         await this.userRepository.save(user);
+        //send Welcome email
         return user;
     }
 
     async login (email, password, ip, userAgent) {
-        const user = await this.userRepository.findOneByEmail(email);
+        if(!email || !password){
+            throw new BadRequestError('please provide all values')
+        }
+        const user = await this.userRepository.findOneByEmail_PasswordReturned(email);
         if(!user){
             throw new UnauthenticatedError('invalid credentials')
         }
@@ -97,6 +107,9 @@ class AuthService{
     }
 
     async forgotPassword(email){
+        if (!email) {
+            throw new BadRequestError('Please provide valid email');
+        }
         const user = await this.userRepository.findOneByEmail(email);
         if (!user) {
             throw new BadRequestError('User not found!');
@@ -108,7 +121,7 @@ class AuthService{
             name: user.name,
             email: user.email,
             token: passwordToken,
-            origin: 'http://localhost:3000',
+            origin,
         });
         
         const tenMinutes = 1000 * 60 * 10;
@@ -122,6 +135,9 @@ class AuthService{
     }
 
     async resetPassword(email, newPassword, token){
+        if (!token || !email || !newPassword) {
+            throw new BadRequestError('Please provide all values');
+        }
         const user = await this.userRepository.findOneByEmail(email);
         
         if (!user) {
@@ -130,8 +146,8 @@ class AuthService{
         const currentDate = new Date();
         
         if (
-            user.passwordToken !== createHash(token) &&
-            user.passwordTokenExpirationDate <= currentDate
+            user.passwordTokenExpirationDate <= currentDate ||
+            user.passwordToken !== createHash(token)
         ) {
             throw new BadRequestError('Token is invalid or expired');
         }

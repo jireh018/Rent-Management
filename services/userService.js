@@ -1,199 +1,74 @@
 const { StatusCodes } = require('http-status-codes')
-const { CustomAPIError,
-  UnauthenticatedError,
-  NotFoundError,
-  BadRequestError,
-  UnauthorizedError,} = require('../errors/index')
-const {createTokenUser,
-    isTokenValid,
-    attachCookiesToResponse,
-    sendResetPasswordEmail,
-    sendVerificationEmail,
-    createHash,
-} = require('../utils/index');
+const {
+    CustomAPIError,
+    UnauthenticatedError,
+    NotFoundError,
+    BadRequestError,
+    UnauthorizedError} = require('../errors/index')
 const crypto = require('crypto');
+const strongPassword = require('validator/lib/isStrongPassword');
 
 class UserService{
-    constructor(model){
-        this.model = model;
+    constructor(userRepository){
+        this.userRepository = userRepository;
     }
 
-    async register(data){
-        const {name, email, password} = data
-        
-        //const userAlreadyExists = await this.model.findOne({email});
-        const userAlreadyExists = await this.model.findOne({email});
-        if(userAlreadyExists){
-            throw new BadRequestError('Email already exists')
+    async getAllUsersByRole(role){
+        const users = await this.userRepository.findAllByRole(role);
+        if(!users){
+            throw new BadRequestError('No existing users');
         }
+        return {users, count: users.length};
+    }
 
-        const isFirstAccount = await this.model.countDocuments({}) === 0;
-        const role = isFirstAccount? 'admin' : 'tenant';
-
-        const emailVerificationToken = crypto.randomBytes(40).toString('hex')
-        const user = await this.model.create({name, email, password, role, emailVerificationToken});
-
-        const origin = 'http://localhost:3000';
-        await sendVerificationEmail({
-            name: user.name,
-            email: user.email,
-            verificationToken: user.emailVerificationToken,
-            origin,
-        })
-
+    async getSingleUserById(id){
+        const user = await this.userRepository.findById(id);
+        if(!user){
+            throw new BadRequestError(`No existing user with id ${id}`)
+        }
         return user;
     }
 
-    async verifyEmail(data) {
-        const {emailVerificationToken, email } = data
-        if(!emailVerificationToken || !email){
-            throw new BadRequestError('Please provide all values')
-        }
-        const user = await this.model.findOne({email})
+    async deleteUserById(id){
+        const user = await this.userRepository.findById(id);
         if(!user){
-            throw new UnauthenticatedError('verification failed')
+            throw new BadRequestError(`No existing user with id ${id}`)
         }
-
-        if(user.emailVerificationToken !== emailVerificationToken){
-            throw new UnauthenticatedError('verification failed')
-        }
-        user.isVerified = true
-        user.verified = Date.now()
-        user.emailVerificationToken = ''
-
-        await user.save()
-
-        res.status(StatusCodes.OK).json({msg: 'email verified'})
+        await this.userRepository.remove(user);
+        return {msg: 'Success, user remove!'};
     }
 
-    async login(data) {
-        const {email, password} = req.body
-        if(!email || !password){
-            throw new BadRequestError('please provide all values')
+    async updateUserInfo(data, id){
+        if(!data.name || !data.email){
+            throw new BadRequestError('Please provide both value')
         }
+        const user = await this.userRepository.findById(id);
+        user.email = data.email;
+        user.name = data.name;
 
-        const user = await this.model.findOne({email})//.select('+password')
-        if(!user){
-            throw new UnauthenticatedError('invalid credentials')
-        }
-        if(!user.isVerified){
-            throw new BadRequestError('Please verify rmail');
-            ('not verified');
-        }
-
-        const isPasswordCorrect = await user.comparePassword(password)
-        if(!isPasswordCorrect){
-            throw new UnauthenticatedError('invalid credentials')
-        }
-        if(!user.isVerified){
-            throw new UnauthenticatedError('Please verify your email')
-        }
-
-        const tokenUser = createTokenUser(user)
-        // create refresh token
-        let refreshToken = '';
-        // check for existing token
-        const existingToken = await Token.findOne({ user: user._id });
-
-        if (existingToken) {
-            const { isValid } = existingToken;
-            if (!isValid) {
-            throw new UnauthenticatedError('Invalid Credentials');
-            }
-            refreshToken = existingToken.refreshToken;
-            attachCookiesToResponse({ res, user: tokenUser, refreshToken });
-            res.status(StatusCodes.OK).json({ user: tokenUser });
-            return;
-        }
-
-        refreshToken = crypto.randomBytes(40).toString('hex');
-        const userAgent = req.headers['user-agent'];
-        const ip = req.ip;
-        const userToken = { refreshToken, ip, userAgent, user: user._id };
-
-        await Token.create(userToken);
-
-        attachCookiesToResponse({res, user: tokenUser, refreshToken})
-        res.status(StatusCodes.OK).json({user: user})
+        const newUser = await this.userRepository.save(user);
+        return newUser;
     }
 
-    async showCurrentUser (user) {
-        res.status(StatusCodes.OK).json({user:req.user})
-    }
-
-    async logout (id) {
-        await Token.findOneAndDelete({user: req.user.userId})
-
-        res.cookie('accessToken', 'logout', {
-            httpOnly: true,
-            expires: new Date(Date.now()),
-        })
-
-        res.cookie('refreshToken', 'logout', {
-            httpOnly: true,
-            expires: new Date(Date.now()),
-        })
-
-        res.status(StatusCodes.OK).json({msg: 'user logged out!'})
-    }
-
-    async forgotPassword (data) {
-        const { email } = req.body;
-        if (!email) {
-        throw new BadRequestError('Please provide valid email');
+    async updateUSerPassword(passwords, id){
+        const {oldPassword, newPassword} = passwords
+        if(!oldPassword || !newPassword){
+            throw new BadRequestError('Please provide both value')
         }
-    
-        const user = await this.model.findOne({ email });
-    
-        if (user) {
-        const passwordToken = crypto.randomBytes(70).toString('hex');
-        // send email
-        const origin = 'http://localhost:3000';
-        await sendResetPasswordEmail({
-            name: user.name,
-            email: user.email,
-            token: passwordToken,
-            origin,
-        });
-    
-        const tenMinutes = 1000 * 60 * 10;
-        const passwordTokenExpirationDate = new Date(Date.now() + tenMinutes);
-    
-        user.passwordToken = createHash(passwordToken);
-        user.passwordTokenExpirationDate = passwordTokenExpirationDate;
-        await user.save();
+        if (!strongPassword(newPassword)) {
+            throw new BadRequestError('Password is not strong enough');
         }
-    
-        res
-        .status(StatusCodes.OK)
-        .json({ msg: 'Please check your email for reset password link', token : user.passwordToken });
-    };
 
-  async resetPassword (data) {s
-    const { token, email, password } = req.body;
-    if (!token || !email || !password) {
-      throw new BadRequestError('Please provide all values');
+        const user = await this.userRepository.findById(id);
+        const isPasswordCorrect = await this.userRepository.comparePassword({user, oldPassword});
+        if (!isPasswordCorrect) {
+            throw new  UnauthenticatedError('Invalid Credentials');
+        }
+        user.password = newPassword;
+
+        await this.userRepository.save(user);
+        return { msg: 'Success, password updated!' };
     }
-    const user = await this.model.findOne({ email });
-  
-    if (user) {
-      const currentDate = new Date();
-  
-      if (
-        user.passwordToken === token &&
-        user.passwordTokenExpirationDate > currentDate
-      ) {
-        user.password = password;
-        user.passwordToken = null;
-        user.passwordTokenExpirationDate = null;
-        await user.save();
-      }
-    }
-  
-    res
-      .status(StatusCodes.OK)
-      .json({ msg:'password reset successfully', user});
-  };  
 }
 
 module.exports = UserService;

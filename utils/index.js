@@ -7,6 +7,9 @@ const {
 const checkPermissions = require('./checkPermissions.js');
 const sendResetPasswordEmail = require('./sendResetPasswordEmail.js');
 const createHash = require('./createHash.js');
+const {
+    validateFieldBasedOnPropertyType,
+} = require('./unitSafeCheckMethods');
 
 module.exports = {
     createTokenUser,
@@ -16,4 +19,5 @@ module.exports = {
     sendResetPasswordEmail,
     sendVerificationEmail,
     createHash,
+    validateFieldBasedOnPropertyType,
 }
