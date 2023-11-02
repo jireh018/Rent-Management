@@ -24,12 +24,12 @@ app.use(cookieParser(process.env.JWT_SECRET))
 app.use(bodyParser.json());
 
 app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/user', userRoutes);
-app.use('/api/v1/management', mgtRoutes);
-app.use('/api/v1/property', propertyRoutes);
-app.use('/api/v1/unit', unitRoutes);
-app.use('/api/v1/lease', leaseRoutes);
-app.use('/api/v1/issue', issueRoutes);
+app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/managements', mgtRoutes);
+app.use('/api/v1/properties', propertyRoutes);
+app.use('/api/v1/units', unitRoutes);
+app.use('/api/v1/leases', leaseRoutes);
+app.use('/api/v1/issues', issueRoutes);
 
 app.use(notFoundMiddleware);
 app.use(errorHandlerMiddleware);
